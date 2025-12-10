@@ -1,0 +1,10 @@
+# No external dependencies required
+# All applications use standard Python libraries:
+# - tkinter (GUI)
+# - collections
+# - heapq
+# - math
+# - time
+# - subprocess
+# - sys
+# - os
