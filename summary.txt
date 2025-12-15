@@ -1,0 +1,5 @@
+Figure 1 A->L Cost: 20
+Figure 1 A->L Path: A -> D -> H -> E -> J -> L
+Figure 2 A->I Cost: 22
+Figure 2 A->I Path: A -> B -> D -> G -> I
+Figure 2 A->G Cost: 13
