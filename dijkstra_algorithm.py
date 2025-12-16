@@ -1,484 +1,274 @@
 """
-Dijkstra's Algorithm - Visual Implementation
+Dijkstra's Algorithm - Visualization
 Author: DSA Project
-Description: Interactive visualization of Dijkstra's Shortest Path Algorithm on a graph
+Description: Interactive visualization of Dijkstra's Algorithm with graph rendering.
 """
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
+import heapq
 import math
-import time
 
-class GraphNode:
-    def __init__(self, id, x, y):
-        self.id = id
-        self.x = x
-        self.y = y
-
-class DijkstraAlgorithm:
+class DijkstraVisualizer:
     def __init__(self, root):
         self.root = root
-        self.root.title("Dijkstra's Algorithm - Visual Implementation")
-        self.root.geometry("900x600")
-        self.root.configure(bg="#222831")
+        self.root.title("Dijkstra's Algorithm - Visualization")
+        self.root.geometry("1100x750")
+        self.root.configure(bg="#1a1a2e")
         
-        # Graph data
-        self.nodes = {}
-        self.edges = {}
-        self.adj_matrix = []
-        self.node_ids = []
-        
-        # Algorithm state
-        self.distances = {}
-        self.previous = {}
-        self.visited = set()
-        self.current_node = None
-        self.is_animating = False
-        self.animation_speed = 1000
-        self.zoom_scale = 1.0
-        
-        # Colors
+        # Style Configuration
         self.colors = {
-            'bg': "#222831",
-            'node': "#00adb5",
-            'node_text': "#eeeeee",
-            'edge': "#393e46",
-            'visited': "#76b041",
-            'current': "#ff2e63",
-            'path': "#fce38a",
-            'infinity': "∞"
+            "bg": "#1a1a2e",
+            "canvas_bg": "#16213e",
+            "node": "#4ECDC4",      # Teal
+            "node_highlight": "#FFE66D", # Yellow
+            "node_visited": "#FF6B6B",   # Red/Pink
+            "node_path": "#00ff88",      # Green
+            "text": "#ffffff",
+            "edge": "#535c68",
+            "edge_highlight": "#ffffff"
         }
         
-        self.setup_graph()
+        self.current_graph = 1
+        self.is_running = False
+        self.animation_speed = 800
+        
+        # Graph Data (Adjacency List + Coordinates)
+        self.nodes = {}
+        self.edges = []
+        
         self.setup_ui()
-        self.draw_graph()
+        self.load_graph(1)
         
-    def setup_graph(self):
-        """Setup the graph structure (based on typical assignment graphs)"""
-        # Define nodes with positions
-        # Using a layout similar to the assignment figure (assumed)
-        node_positions = {
-            'A': (100, 300),
-            'B': (300, 100),
-            'C': (300, 500),
-            'D': (500, 100),
-            'E': (500, 500),
-            'F': (700, 300)
-        }
-        
-        for id, (x, y) in node_positions.items():
-            self.nodes[id] = GraphNode(id, x, y)
-            self.node_ids.append(id)
-            
-        # Define edges with weights
-        self.edges = {
-            ('A', 'B'): 4, ('A', 'C'): 2,
-            ('B', 'C'): 1, ('B', 'D'): 5,
-            ('C', 'D'): 8, ('C', 'E'): 10,
-            ('D', 'E'): 2, ('D', 'F'): 6,
-            ('E', 'F'): 3
-        }
-        
-        # Initialize adjacency matrix
-        n = len(self.node_ids)
-        self.adj_matrix = [[0] * n for _ in range(n)]
-        
-        for (u, v), w in self.edges.items():
-            i, j = self.node_ids.index(u), self.node_ids.index(v)
-            self.adj_matrix[i][j] = w
-            self.adj_matrix[j][i] = w  # Undirected graph
-
     def setup_ui(self):
-        """Setup the user interface"""
-        # Title
-        title_frame = tk.Frame(self.root, bg=self.colors['bg'])
-        title_frame.pack(pady=20)
+        # Header
+        header_frame = tk.Frame(self.root, bg=self.colors["bg"])
+        header_frame.pack(pady=20)
         
-        title_label = tk.Label(
-            title_frame,
-            text="📍 Dijkstra's Shortest Path",
-            font=("Arial", 32, "bold"),
-            bg=self.colors['bg'],
-            fg=self.colors['node']
-        )
-        title_label.pack()
-        
-        # Main content
-        content_frame = tk.Frame(self.root, bg=self.colors['bg'])
-        content_frame.pack(fill=tk.BOTH, expand=True, padx=20)
-        
-        # Left side - Graph Visualization
-        left_frame = tk.Frame(content_frame, bg=self.colors['bg'])
-        left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        
-        self.canvas = tk.Canvas(
-            left_frame,
-            width=800,
-            height=600,
-            bg="#393e46",
-            highlightthickness=0
-        )
-        
-        h_scroll = tk.Scrollbar(left_frame, orient=tk.HORIZONTAL, command=self.canvas.xview)
-        v_scroll = tk.Scrollbar(left_frame, orient=tk.VERTICAL, command=self.canvas.yview)
-        
-        self.canvas.configure(xscrollcommand=h_scroll.set, yscrollcommand=v_scroll.set)
-        
-        h_scroll.pack(side=tk.BOTTOM, fill=tk.X)
-        v_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        
-        # Right side - Controls and Table
-        right_frame = tk.Frame(content_frame, bg=self.colors['bg'], width=400)
-        right_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=20)
+        tk.Label(header_frame, text="Dijkstra's Algorithm", font=("Arial", 28, "bold"), 
+                 bg=self.colors["bg"], fg="#00d4ff").pack()
         
         # Controls
-        control_frame = tk.LabelFrame(
-            right_frame,
-            text="Controls",
-            font=("Arial", 12, "bold"),
-            bg=self.colors['bg'],
-            fg=self.colors['node_text'],
-            padx=10, pady=10
-        )
-        control_frame.pack(fill=tk.X, pady=10)
+        control_frame = tk.Frame(self.root, bg=self.colors["bg"])
+        control_frame.pack(pady=10)
         
-        tk.Label(
-            control_frame,
-            text="Start Node:",
-            bg=self.colors['bg'],
-            fg=self.colors['node_text']
-        ).grid(row=0, column=0, padx=5)
+        # Graph Selection
+        tk.Label(control_frame, text="Select Graph:", font=("Arial", 12), 
+                 bg=self.colors["bg"], fg="white").pack(side=tk.LEFT, padx=10)
         
-        self.start_node_var = tk.StringVar(value='A')
-        self.start_combo = ttk.Combobox(
-            control_frame,
-            textvariable=self.start_node_var,
-            values=self.node_ids,
-            width=5,
-            state="readonly"
-        )
-        self.start_combo.grid(row=0, column=1, padx=5)
+        self.graph_var = tk.StringVar(value="Figure 1")
+        graph_combo = ttk.Combobox(control_frame, textvariable=self.graph_var, 
+                                   values=["Figure 1", "Figure 2"], state="readonly", width=15)
+        graph_combo.pack(side=tk.LEFT, padx=10)
+        graph_combo.bind("<<ComboboxSelected>>", self.change_graph)
         
-        self.run_btn = tk.Button(
-            control_frame,
-            text="▶ Run Algorithm",
-            font=("Arial", 11, "bold"),
-            bg=self.colors['node'],
-            fg="#ffffff",
-            command=self.run_algorithm,
-            cursor="hand2",
-            relief=tk.FLAT
-        )
-        self.run_btn.grid(row=0, column=2, padx=10)
+        # Buttons
+        self.btn_run = tk.Button(control_frame, text="Run Dijkstra", bg="#00d4ff", fg="#1a1a2e",
+                                 font=("Arial", 11, "bold"), command=self.run_dijkstra)
+        self.btn_run.pack(side=tk.LEFT, padx=10)
         
-        self.reset_btn = tk.Button(
-            control_frame,
-            text="🔄 Reset",
-            font=("Arial", 11, "bold"),
-            bg=self.colors['current'],
-            fg="#ffffff",
-            command=self.reset_graph,
-            cursor="hand2",
-            relief=tk.FLAT
-        )
-        self.reset_btn.grid(row=0, column=3, padx=5)
+        self.btn_reset = tk.Button(control_frame, text="Reset", bg="#ff6b6b", fg="white",
+                                   font=("Arial", 11, "bold"), command=self.reset_graph)
+        self.btn_reset.pack(side=tk.LEFT, padx=10)
         
-        # Speed control
-        tk.Label(
-            control_frame,
-            text="Speed:",
-            bg=self.colors['bg'],
-            fg=self.colors['node_text']
-        ).grid(row=1, column=0, padx=5, pady=10)
-        
-        self.speed_scale = tk.Scale(
-            control_frame,
-            from_=200,
-            to=2000,
-            orient=tk.HORIZONTAL,
-            bg=self.colors['bg'],
-            fg=self.colors['node_text'],
-            highlightthickness=0,
-            length=200
-        )
-        self.speed_scale.set(1000)
-        self.speed_scale.grid(row=1, column=1, columnspan=3)
-        
-        # Zoom Controls
-        tk.Label(
-            control_frame,
-            text="Zoom:",
-            bg=self.colors['bg'],
-            fg=self.colors['node_text']
-        ).grid(row=2, column=0, padx=5, pady=10)
-        
-        zoom_frame = tk.Frame(control_frame, bg=self.colors['bg'])
-        zoom_frame.grid(row=2, column=1, columnspan=3, sticky="w")
-        
-        tk.Button(
-            zoom_frame,
-            text="🔍+",
-            font=("Arial", 10, "bold"),
-            bg=self.colors['node'],
-            fg="#ffffff",
-            command=self.zoom_in,
-            cursor="hand2",
-            relief=tk.FLAT,
-            width=5
-        ).pack(side=tk.LEFT, padx=5)
-        
-        tk.Button(
-            zoom_frame,
-            text="🔍-",
-            font=("Arial", 10, "bold"),
-            bg=self.colors['node'],
-            fg="#ffffff",
-            command=self.zoom_out,
-            cursor="hand2",
-            relief=tk.FLAT,
-            width=5
-        ).pack(side=tk.LEFT, padx=5)
-        
-        # Distance Table
-        table_frame = tk.LabelFrame(
-            right_frame,
-            text="Shortest Path Distances",
-            font=("Arial", 12, "bold"),
-            bg=self.colors['bg'],
-            fg=self.colors['node_text'],
-            padx=10, pady=10
-        )
-        table_frame.pack(fill=tk.BOTH, expand=True, pady=10)
-        
-        columns = ('node', 'dist', 'prev')
-        self.tree_view = ttk.Treeview(
-            table_frame,
-            columns=columns,
-            show='headings',
-            height=10
-        )
-        
-        self.tree_view.heading('node', text='Node')
-        self.tree_view.heading('dist', text='Distance')
-        self.tree_view.heading('prev', text='Previous')
-        
-        self.tree_view.column('node', width=80, anchor='center')
-        self.tree_view.column('dist', width=100, anchor='center')
-        self.tree_view.column('prev', width=100, anchor='center')
-        
-        self.tree_view.pack(fill=tk.BOTH, expand=True)
+        # Canvas
+        self.canvas = tk.Canvas(self.root, bg=self.colors["canvas_bg"], height=500, highlightthickness=0)
+        self.canvas.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
         
         # Log/Status
-        self.status_label = tk.Label(
-            right_frame,
-            text="Ready to start...",
-            font=("Arial", 12),
-            bg=self.colors['bg'],
-            fg="#fce38a",
-            wraplength=350,
-            justify=tk.LEFT
-        )
-        self.status_label.pack(fill=tk.X, pady=10)
+        self.status_label = tk.Label(self.root, text="Ready", font=("Courier", 12), 
+                                     bg=self.colors["bg"], fg="#a0a0a0")
+        self.status_label.pack(pady=10)
 
-    def draw_graph(self):
-        """Draw the graph on canvas"""
+    def load_graph(self, graph_id):
+        self.current_graph = graph_id
+        self.nodes = {}
+        self.edges = []  # List of (u, v, weight)
+        
+        width = 1100
+        height = 500
+        
+        if graph_id == 1:
+            # Figure 1 Coordinates
+            self.nodes = {
+                'A': (150, 100), 'B': (400, 100), 'C': (700, 100),
+                'D': (300, 200), 'E': (600, 200),
+                'F': (150, 300), 'G': (280, 280), 'H': (450, 280), 'I': (650, 300), 'J': (800, 300),
+                'K': (350, 420), 'L': (800, 420)
+            }
+            # Edges (u, v, weight)
+            self.edges = [
+                ('A','D',4), ('B','D',8), ('B','C',2),
+                ('C','E',5), ('C','J',10),
+                ('D','F',6), ('D','G',3), ('D','K',6), ('D','H',9),
+                ('E','H',4), ('E','I',9), ('E','J',2),
+                ('F','G',1), ('F','K',7),
+                ('G','K',4),
+                ('H','I',3), ('H','K',6),
+                ('I','J',7), ('J','L',1)
+            ]
+        else:
+            # Figure 2 Coordinates
+            self.nodes = {
+                'A': (150, 100), 'B': (400, 120), 'C': (700, 150),
+                'D': (300, 220), 'E': (550, 220), 'F': (800, 250),
+                'G': (450, 320), 'H': (700, 350),
+                'I': (350, 420), 'J': (650, 420)
+            }
+            # Edges
+            self.edges = [
+                ('A','B',2), ('A','D',15),
+                ('B','C',3), ('B','D',5), ('B','E',17),
+                ('C','E',12), ('C','F',18),
+                ('D','E',4), ('D','G',6), 
+                ('E','F',13), ('E','G',11),
+                ('F','H',7),
+                ('G','H',19), ('G','I',9),
+                ('H','I',8), ('H','J',16),
+                ('I','J',1)
+            ]
+            
+        self.draw_graph()
+
+    def draw_graph(self, highlighted_node=None, visited_nodes=None, path_edges=None):
         self.canvas.delete("all")
+        visited_nodes = visited_nodes or set()
+        path_edges = path_edges or set()
         
-        # Draw edges
-        for (u, v), w in self.edges.items():
-            n1 = self.nodes[u]
-            n2 = self.nodes[v]
+        # Draw Edges
+        for u, v, w in self.edges:
+            x1, y1 = self.nodes[u]
+            x2, y2 = self.nodes[v]
             
-            # Apply zoom
-            x1, y1 = n1.x * self.zoom_scale, n1.y * self.zoom_scale
-            x2, y2 = n2.x * self.zoom_scale, n2.y * self.zoom_scale
+            color = self.colors["edge"]
+            width = 2
             
-            # Determine edge color
-            color = self.colors['edge']
-            width = 2 * self.zoom_scale
+            # Check if this edge is part of the final path
+            if (u, v) in path_edges or (v, u) in path_edges:
+                color = self.colors["node_path"]
+                width = 4
             
-            # Highlight path edges
-            if self.is_edge_in_path(u, v):
-                color = self.colors['path']
-                width = 4 * self.zoom_scale
+            self.canvas.create_line(x1, y1, x2, y2, fill=color, width=width)
             
-            self.canvas.create_line(
-                x1, y1, x2, y2,
-                fill=color, width=width, tags="edge"
-            )
+            # Draw Weight Label (midpoint)
+            mx, my = (x1+x2)/2, (y1+y2)/2
+            # Add small offset to not overlap line
+            self.canvas.create_text(mx, my-10, text=str(w), fill="#a0a0a0", font=("Arial", 10, "bold"))
+
+        # Draw Nodes
+        r = 20 # Radius
+        for node, (x, y) in self.nodes.items():
+            color = self.colors["node"]
+            if node == highlighted_node:
+                color = self.colors["node_highlight"]
+            elif node in visited_nodes:
+                color = self.colors["node_visited"]
+            elif node in [n for edge in path_edges for n in edge]: # Rough check for path nodes
+                 # This logic is a bit loose, better to pass specific node colors
+                 pass
+
+            self.canvas.create_oval(x-r, y-r, x+r, y+r, fill=color, outline="white", width=2)
+            self.canvas.create_text(x, y, text=node, fill="#1a1a2e", font=("Arial", 12, "bold"))
+
+    def change_graph(self, event):
+        selection = self.graph_var.get()
+        if selection == "Figure 1":
+            self.load_graph(1)
+        else:
+            self.load_graph(2)
+        self.status_label.config(text="Graph Loaded")
+
+    def run_dijkstra(self):
+        if self.is_running: return
+        self.is_running = True
+        self.status_label.config(text="Running Algorithm...", fg=self.colors["node_highlight"])
+        
+        start_node = 'A'
+        target_node = 'L' if self.current_graph == 1 else 'I' # Example target for Fig 2
+        
+        # Build Adjacency List
+        adj = {node: {} for node in self.nodes}
+        for u, v, w in self.edges:
+            adj[u][v] = w
+            adj[v][u] = w
             
-            # Draw weight
-            mid_x = (x1 + x2) / 2
-            mid_y = (y1 + y2) / 2
+        # Dijkstra Logic with Generator for Animation
+        def algorithm_step():
+            pq = [(0, start_node)]
+            distances = {node: float('inf') for node in self.nodes}
+            distances[start_node] = 0
+            parents = {node: None for node in self.nodes}
+            visited = set()
             
-            # Background for weight text
-            r = 12 * self.zoom_scale
-            self.canvas.create_oval(
-                mid_x-r, mid_y-r, mid_x+r, mid_y+r,
-                fill="#222831", outline=""
-            )
-            self.canvas.create_text(
-                mid_x, mid_y,
-                text=str(w),
-                fill="#eeeeee",
-                font=("Arial", int(10*self.zoom_scale), "bold")
-            )
-            
-        # Draw nodes
-        for id, node in self.nodes.items():
-            color = self.colors['node']
-            if id in self.visited:
-                color = self.colors['visited']
-            if id == self.current_node:
-                color = self.colors['current']
+            while pq:
+                current_dist, current_node = heapq.heappop(pq)
                 
-            x, y = node.x * self.zoom_scale, node.y * self.zoom_scale
-            r = 25 * self.zoom_scale
-            
-            self.canvas.create_oval(
-                x-r, y-r, x+r, y+r,
-                fill=color, outline="#eeeeee", width=2
-            )
-            
-            # Node ID
-            self.canvas.create_text(
-                x, y,
-                text=id,
-                fill="#ffffff",
-                font=("Arial", int(14*self.zoom_scale), "bold")
-            )
-            
-            # Distance label (above node)
-            dist_text = "∞"
-            if id in self.distances:
-                dist_text = str(self.distances[id])
+                if current_node in visited:
+                    continue
                 
-            self.canvas.create_text(
-                x, y - 40*self.zoom_scale,
-                text=f"d={dist_text}",
-                fill="#fce38a",
-                font=("Arial", int(10*self.zoom_scale))
-            )
-            
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-
-    def zoom_in(self):
-        self.zoom_scale *= 1.1
-        self.draw_graph()
-
-    def zoom_out(self):
-        self.zoom_scale /= 1.1
-        self.draw_graph()
-
-    def is_edge_in_path(self, u, v):
-        """Check if edge is part of shortest path tree"""
-        if v in self.previous and self.previous[v] == u:
-            return True
-        if u in self.previous and self.previous[u] == v:
-            return True
-        return False
-
-    def update_table(self):
-        """Update the distance table"""
-        for item in self.tree_view.get_children():
-            self.tree_view.delete(item)
-            
-        for node in self.node_ids:
-            dist = self.distances.get(node, float('inf'))
-            dist_str = "∞" if dist == float('inf') else str(dist)
-            prev = self.previous.get(node, "-")
-            
-            self.tree_view.insert('', 'end', values=(node, dist_str, prev))
-
-    def run_algorithm(self):
-        """Start Dijkstra's algorithm"""
-        if self.is_animating:
-            return
-            
-        start_node = self.start_node_var.get()
-        self.reset_graph(keep_start=True)
-        
-        # Initialize
-        self.distances = {node: float('inf') for node in self.node_ids}
-        self.distances[start_node] = 0
-        self.unvisited = set(self.node_ids)
-        
-        self.is_animating = True
-        self.run_btn.config(state=tk.DISABLED)
-        self.start_combo.config(state=tk.DISABLED)
-        
-        self.animate_step()
-
-    def animate_step(self):
-        """Execute one step of Dijkstra's"""
-        if not self.unvisited:
-            self.is_animating = False
-            self.current_node = None
-            self.draw_graph()
-            self.status_label.config(text="Algorithm Complete! Shortest paths found.")
-            self.run_btn.config(state=tk.NORMAL)
-            self.start_combo.config(state=tk.NORMAL)
-            return
-
-        # Find node with min distance in unvisited
-        current = min(self.unvisited, key=lambda node: self.distances[node])
-        
-        if self.distances[current] == float('inf'):
-            # Remaining nodes unreachable
-            self.is_animating = False
-            self.status_label.config(text="Remaining nodes are unreachable.")
-            return
-            
-        self.current_node = current
-        self.unvisited.remove(current)
-        self.visited.add(current)
-        
-        self.status_label.config(text=f"Visiting node {current} (Distance: {self.distances[current]})")
-        
-        # Update neighbors
-        for neighbor in self.node_ids:
-            if neighbor in self.unvisited:
-                # Check if edge exists
-                edge_weight = None
-                if (current, neighbor) in self.edges:
-                    edge_weight = self.edges[(current, neighbor)]
-                elif (neighbor, current) in self.edges:
-                    edge_weight = self.edges[(neighbor, current)]
+                visited.add(current_node)
                 
-                if edge_weight is not None:
-                    new_dist = self.distances[current] + edge_weight
-                    if new_dist < self.distances[neighbor]:
-                        self.distances[neighbor] = new_dist
-                        self.previous[neighbor] = current
-        
-        self.draw_graph()
-        self.update_table()
-        
-        delay = self.speed_scale.get()
-        self.root.after(delay, self.animate_step)
-
-    def reset_graph(self, keep_start=False):
-        """Reset the graph state"""
-        self.is_animating = False
-        self.distances = {}
-        self.previous = {}
-        self.visited = set()
-        self.current_node = None
-        self.unvisited = set()
-        
-        if not keep_start:
-            self.start_node_var.set('A')
+                # YIELD STATE FOR ANIMATION
+                yield ('VISITING', current_node, visited.copy(), distances.copy())
+                
+                if current_node == target_node:
+                    break
+                
+                for neighbor, weight in adj[current_node].items():
+                    if neighbor in visited:
+                        continue
+                    new_dist = current_dist + weight
+                    if new_dist < distances[neighbor]:
+                        distances[neighbor] = new_dist
+                        parents[neighbor] = current_node
+                        heapq.heappush(pq, (new_dist, neighbor))
             
-        self.draw_graph()
-        self.update_table()
-        self.status_label.config(text="Ready to start...")
-        self.run_btn.config(state=tk.NORMAL)
-        self.start_combo.config(state=tk.NORMAL)
+            # Reconstruct Path
+            path = []
+            curr = target_node
+            while curr:
+                path.append(curr)
+                curr = parents[curr]
+            path = path[::-1]
+            
+            # Identify path edges
+            path_edges = set()
+            for i in range(len(path)-1):
+                path_edges.add((path[i], path[i+1]))
+                
+            yield ('FINISHED', path, distances[target_node], path_edges)
+
+        self.anim_gen = algorithm_step()
+        self.process_animation()
+
+    def process_animation(self):
+        try:
+            state = next(self.anim_gen)
+            type = state[0]
+            
+            if type == 'VISITING':
+                current_node, visited, dists = state[1], state[2], state[3]
+                self.draw_graph(highlighted_node=current_node, visited_nodes=visited)
+                self.status_label.config(text=f"Visiting {current_node} (Distance: {dists[current_node]})")
+                self.root.after(self.animation_speed, self.process_animation)
+                
+            elif type == 'FINISHED':
+                path, cost, path_edges = state[1], state[2], state[3]
+                self.draw_graph(path_edges=path_edges, visited_nodes=set(self.nodes.keys())) # Mark all as visited roughly
+                self.status_label.config(text=f"Shortest Path: {' -> '.join(path)} | Cost: {cost}", fg=self.colors["node_path"])
+                self.is_running = False
+                
+        except StopIteration:
+            self.is_running = False
+
+    def reset_graph(self):
+        self.is_running = False
+        self.load_graph(self.current_graph)
+        self.status_label.config(text="Ready")
 
 def main():
     root = tk.Tk()
-    app = DijkstraAlgorithm(root)
+    app = DijkstraVisualizer(root)
     root.mainloop()
 
 if __name__ == "__main__":
